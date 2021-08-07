@@ -12839,7 +12839,7 @@ const getMessage = async statusString => {
   const jobName = (failedJob == null ? void 0 : failedJob.name) || github.context.job;
   const jobId = (failedJob == null ? void 0 : failedJob.id) || github.context.runId; // prettier-ignore
 
-  const runUrl = failedJob.url || `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${jobId}`; // prettier-ignore
+  const runUrl = (failedJob == null ? void 0 : failedJob.url) || `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${jobId}`; // prettier-ignore
 
   const workflowSnippet = (failedJob ? `<${runUrl}|${jobName}> ` : '') + `_<${runUrl}|${github.context.workflow}>_`;
 
