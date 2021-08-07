@@ -1,6 +1,7 @@
 import got from 'got';
 import core from '@actions/core';
 import { context } from '@actions/github';
+import { getFailedJob } from './multiple-jobs';
 
 export type JobStatus = 'success' | 'failure' | 'cancelled';
 
@@ -27,11 +28,13 @@ const jobParameters = (status: JobStatus) => {
 /**
  * Returns message for slack based on event type
  */
-const getMessage = (statusString: string) => {
+const getMessage = async (statusString: string) => {
   const eventName = context.eventName;
 
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-  const commitId = context.sha.substring(0, 7);
+  // const commitId = context.sha.substring(0, 7);
+
+  const job = await getFailedJob();
 
   switch (eventName) {
     case 'pull_request': {
@@ -44,7 +47,7 @@ const getMessage = (statusString: string) => {
       // const compareUrl = `${context.payload.repository?.html_url}/compare/${context.payload.pull_request?.head.ref}`;
 
       // prettier-ignore
-			return `PR <${pr.url}| #${pr.number} ${pr.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+      return `PR <${pr.url}| #${pr.number} ${pr.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${context.workflow}>)`;
     }
 
     case 'release': {
@@ -54,7 +57,7 @@ const getMessage = (statusString: string) => {
         commit: `${context.payload.repository?.html_url}/commit/${context.sha}`,
       };
       // prettier-ignore
-			return `Release <${release.url}|${release.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+      return `Release <${release.url}|${release.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${context.workflow}>)`;
     }
 
     case 'push': {
@@ -69,7 +72,7 @@ const getMessage = (statusString: string) => {
         };
 
         // prettier-ignore
-				return `Tag <${tag.url}|${tag.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+        return `Tag <${tag.url}|${tag.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${context.workflow}>)`;
       }
 
       const commitMessage = context.payload.head_commit.message;
@@ -81,9 +84,9 @@ const getMessage = (statusString: string) => {
       };
 
       // Normal commit push
-      return `<${headCommit.url}|${headCommit.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+      return `<${headCommit.url}|${headCommit.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${context.workflow}>)`;
 
-			// {commit message} {status} during {job} ({workflow})
+      // {commit message} {status} during {job} ({workflow})
     }
 
     case 'schedule': {
@@ -99,7 +102,7 @@ const getMessage = (statusString: string) => {
       const branchName = context.ref.substring(pre.length);
       const branchUrl = `${context.payload.repository.html_url}/tree/${branchName}`;
 
-			return `Branch <${branchUrl}|${branchName}> creation ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+      return `Branch <${branchUrl}|${branchName}> creation ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${context.workflow}>)`;
     }
 
     case 'delete': {
@@ -108,7 +111,7 @@ const getMessage = (statusString: string) => {
       }
 
       const branchName = context.payload.ref;
-			return `Branch \`${branchName}\` deletion ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+      return `Branch \`${branchName}\` deletion ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${context.workflow}>)`;
     }
 
     default:
@@ -122,7 +125,7 @@ const getMessage = (statusString: string) => {
 const notify = async (status: JobStatus, url: string) => {
   const sender = context.payload.sender;
 
-  const message = getMessage(jobParameters(status).text);
+  const message = await getMessage(jobParameters(status).text);
   core.debug(JSON.stringify(context));
 
   if (!message) {

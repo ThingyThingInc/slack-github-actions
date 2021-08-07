@@ -12754,6 +12754,59 @@ exports.getOctokit = getOctokit;
 
 var github$1 = /*@__PURE__*/unwrapExports(github);
 
+function _extends() {
+  _extends = Object.assign || function (target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var source = arguments[i];
+
+      for (var key in source) {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+          target[key] = source[key];
+        }
+      }
+    }
+
+    return target;
+  };
+
+  return _extends.apply(this, arguments);
+}
+
+const getJobs = async () => {
+  const Octokit = github.getOctokit(process.env.GITHUB_TOKEN);
+  const {
+    data
+  } = await Octokit.actions.listJobsForWorkflowRun(_extends({}, github.context.repo, {
+    run_id: github.context.runId
+  }));
+  const currentJob = github.context.job;
+  return data.jobs.map(a => ({
+    name: a.name,
+    conclusion: a.conclusion,
+    url: a.url
+  })).filter(a => a.name !== currentJob);
+};
+
+const getJobsStatus = async () => {
+  const jobs = await getJobs();
+
+  if (jobs.some(a => ['failure', 'timed_out'].includes(a.conclusion))) {
+    return 'failure';
+  }
+
+  if (jobs.some(a => a.conclusion === 'cancelled')) {
+    return 'cancelled';
+  }
+
+  return 'success';
+};
+const getFailedJob = async () => {
+  const jobs = await getJobs();
+  const failedJob = jobs.find(a => ['failure', 'timed_out'].includes(a.conclusion));
+  const cancelledJob = jobs.find(a => a.conclusion === 'cancelled');
+  return failedJob || cancelledJob;
+};
+
 /**
  * Returns parameters depending on the status of the workflow
  */
@@ -12779,10 +12832,11 @@ const jobParameters = status => {
  */
 
 
-const getMessage = statusString => {
+const getMessage = async statusString => {
   const eventName = github.context.eventName;
-  const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-  const commitId = github.context.sha.substring(0, 7);
+  const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`; // const commitId = context.sha.substring(0, 7);
+
+  const job = await getFailedJob();
 
   switch (eventName) {
     case 'pull_request':
@@ -12796,7 +12850,7 @@ const getMessage = statusString => {
         }; // const compareUrl = `${context.payload.repository?.html_url}/compare/${context.payload.pull_request?.head.ref}`;
         // prettier-ignore
 
-        return `PR <${pr.url}| #${pr.number} ${pr.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
+        return `PR <${pr.url}| #${pr.number} ${pr.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     case 'release':
@@ -12809,7 +12863,7 @@ const getMessage = statusString => {
           commit: `${(_context$payload$repo = github.context.payload.repository) == null ? void 0 : _context$payload$repo.html_url}/commit/${github.context.sha}`
         }; // prettier-ignore
 
-        return `Release <${release.url}|${release.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
+        return `Release <${release.url}|${release.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     case 'push':
@@ -12825,7 +12879,7 @@ const getMessage = statusString => {
             url: `${(_context$payload$repo2 = github.context.payload.repository) == null ? void 0 : _context$payload$repo2.html_url}/releases/tag/${title}`
           }; // prettier-ignore
 
-          return `Tag <${tag.url}|${tag.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
+          return `Tag <${tag.url}|${tag.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${github.context.workflow}>)`;
         }
 
         const commitMessage = github.context.payload.head_commit.message;
@@ -12834,7 +12888,7 @@ const getMessage = statusString => {
           url: github.context.payload.head_commit.url
         }; // Normal commit push
 
-        return `<${headCommit.url}|${headCommit.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`; // {commit message} {status} during {job} ({workflow})
+        return `<${headCommit.url}|${headCommit.title}> ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${github.context.workflow}>)`; // {commit message} {status} during {job} ({workflow})
       }
 
     case 'schedule':
@@ -12851,7 +12905,7 @@ const getMessage = statusString => {
         const pre = 'refs/heads/';
         const branchName = github.context.ref.substring(pre.length);
         const branchUrl = `${github.context.payload.repository.html_url}/tree/${branchName}`;
-        return `Branch <${branchUrl}|${branchName}> creation ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
+        return `Branch <${branchUrl}|${branchName}> creation ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     case 'delete':
@@ -12861,7 +12915,7 @@ const getMessage = statusString => {
         }
 
         const branchName = github.context.payload.ref;
-        return `Branch \`${branchName}\` deletion ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
+        return `Branch \`${branchName}\` deletion ${statusString} during <${job.url}|${job.name}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     default:
@@ -12877,7 +12931,7 @@ const notify = async (status, url) => {
   var _context$payload$repo3;
 
   const sender = github.context.payload.sender;
-  const message = getMessage(jobParameters(status).text);
+  const message = await getMessage(jobParameters(status).text);
   core$1.debug(JSON.stringify(github.context));
 
   if (!message) {
@@ -12908,52 +12962,6 @@ const notify = async (status, url) => {
   await got.post(url, {
     body: JSON.stringify(payload)
   });
-};
-
-function _extends() {
-  _extends = Object.assign || function (target) {
-    for (var i = 1; i < arguments.length; i++) {
-      var source = arguments[i];
-
-      for (var key in source) {
-        if (Object.prototype.hasOwnProperty.call(source, key)) {
-          target[key] = source[key];
-        }
-      }
-    }
-
-    return target;
-  };
-
-  return _extends.apply(this, arguments);
-}
-
-const getJobs = async () => {
-  const Octokit = github.getOctokit(process.env.GITHUB_TOKEN);
-  const {
-    data
-  } = await Octokit.actions.listJobsForWorkflowRun(_extends({}, github.context.repo, {
-    run_id: github.context.runId
-  }));
-  const currentJob = github.context.job;
-  return data.jobs.map(a => ({
-    name: a.name,
-    conclusion: a.conclusion
-  })).filter(a => a.name !== currentJob);
-};
-
-const getJobsStatus = async () => {
-  const jobs = await getJobs();
-
-  if (jobs.some(a => ['failure', 'timed_out'].includes(a.conclusion))) {
-    return 'failure';
-  }
-
-  if (jobs.some(a => a.conclusion === 'cancelled')) {
-    return 'cancelled';
-  }
-
-  return 'success';
 };
 
 async function run() {

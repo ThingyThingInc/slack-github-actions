@@ -14,6 +14,7 @@ const getJobs = async () => {
     .map((a) => ({
       name: a.name,
       conclusion: a.conclusion,
+      url: a.url,
     }))
     .filter((a) => a.name !== currentJob);
 };
@@ -30,4 +31,16 @@ export const getJobsStatus = async () => {
   }
 
   return 'success';
+};
+
+export const getFailedJob = async () => {
+  const jobs = await getJobs();
+
+  const failedJob = jobs.find((a) =>
+    ['failure', 'timed_out'].includes(a.conclusion)
+  );
+
+  const cancelledJob = jobs.find((a) => a.conclusion === 'cancelled');
+
+  return failedJob || cancelledJob;
 };
