@@ -14,9 +14,8 @@ const getJobs = async () => {
     .map((a) => ({
       name: a.name,
       conclusion: a.conclusion,
-      id: a.id,
-      run_id: a.run_id,
-      url: a.url,
+      id: a.run_id,
+      url: a.html_url,
     }))
     .filter((a) => a.name !== currentJob);
 };

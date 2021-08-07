@@ -12783,9 +12783,8 @@ const getJobs = async () => {
   return data.jobs.map(a => ({
     name: a.name,
     conclusion: a.conclusion,
-    id: a.id,
-    run_id: a.run_id,
-    url: a.url
+    id: a.run_id,
+    url: a.html_url
   })).filter(a => a.name !== currentJob);
 };
 
@@ -12836,8 +12835,9 @@ const jobParameters = status => {
 
 const getMessage = async statusString => {
   const eventName = github.context.eventName;
-  const job = await getFailedJob();
-  const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${job.id}`; // const commitId = context.sha.substring(0, 7);
+  const job = await getFailedJob(); // const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${job.id}`;
+
+  const runUrl = job.url; // const commitId = context.sha.substring(0, 7);
 
   switch (eventName) {
     case 'pull_request':

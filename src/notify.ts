@@ -33,7 +33,8 @@ const getMessage = async (statusString: string) => {
 
   const job = await getFailedJob();
 
-  const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${job.id}`;
+  // const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${job.id}`;
+  const runUrl = job.url;
   // const commitId = context.sha.substring(0, 7);
 
   switch (eventName) {
