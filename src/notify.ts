@@ -39,7 +39,7 @@ const getMessage = async (statusString: string) => {
   const runUrl = failedJob.url || `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${jobId}`;
 
   // prettier-ignore
-  const workflowSnippet = failedJob ? `<${runUrl}|${jobName}> ` : '' + `_<${runUrl}|${context.workflow}>_`
+  const workflowSnippet = (failedJob ? `<${runUrl}|${jobName}> ` : '') + (`_<${runUrl}|${context.workflow}>_`);
 
   switch (eventName) {
     case 'pull_request': {
