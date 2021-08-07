@@ -31,11 +31,15 @@ const jobParameters = (status: JobStatus) => {
 const getMessage = async (statusString: string) => {
   const eventName = context.eventName;
 
-  const job = await getFailedJob();
+  const failedJob = await getFailedJob();
 
-  // const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${job.id}`;
-  const runUrl = job.url;
-  // const commitId = context.sha.substring(0, 7);
+  const jobName = failedJob?.name || context.job;
+  const jobId = failedJob?.id || context.runId;
+  // prettier-ignore
+  const runUrl = failedJob.url || `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${jobId}`;
+
+  // prettier-ignore
+  const workflowSnippet = failedJob ? `<${runUrl}|${jobName}> ` : '' + `_<${runUrl}|${context.workflow}>_`
 
   switch (eventName) {
     case 'pull_request': {
@@ -48,7 +52,7 @@ const getMessage = async (statusString: string) => {
       // const compareUrl = `${context.payload.repository?.html_url}/compare/${context.payload.pull_request?.head.ref}`;
 
       // prettier-ignore
-      return ` ${statusString}: PR <${pr.url}| #${pr.number} ${pr.title}> during <${job.url}|${job.name}> _<${runUrl}|${context.workflow}>_`;
+      return ` ${statusString}: PR <${pr.url}| #${pr.number} ${pr.title}> during ${workflowSnippet}`;
     }
 
     case 'release': {
@@ -58,7 +62,7 @@ const getMessage = async (statusString: string) => {
         commit: `${context.payload.repository?.html_url}/commit/${context.sha}`,
       };
       // prettier-ignore
-      return `${statusString}: Release <${release.url}|${release.title}> during <${job.url}|${job.name}> _<${runUrl}|${context.workflow}>_`;
+      return `${statusString}: Release <${release.url}|${release.title}> during ${workflowSnippet}`;
     }
 
     case 'push': {
@@ -73,7 +77,7 @@ const getMessage = async (statusString: string) => {
         };
 
         // prettier-ignore
-        return `${statusString}: Tag <${tag.url}|${tag.title}> during <${job.url}|${job.name}> _<${runUrl}|${context.workflow}>_`;
+        return `${statusString}: Tag <${tag.url}|${tag.title}> during ${workflowSnippet}`;
       }
 
       const commitMessage = context.payload.head_commit.message;
@@ -85,7 +89,7 @@ const getMessage = async (statusString: string) => {
       };
 
       // Normal commit push
-      return `${statusString}: <${headCommit.url}|${headCommit.title}> during <${job.url}|${job.name}> _<${runUrl}|${context.workflow}>_`;
+      return `${statusString}: <${headCommit.url}|${headCommit.title}> during ${workflowSnippet}`;
 
       // {commit message} {status} during {job} ({workflow})
     }
@@ -103,7 +107,7 @@ const getMessage = async (statusString: string) => {
       const branchName = context.ref.substring(pre.length);
       const branchUrl = `${context.payload.repository.html_url}/tree/${branchName}`;
 
-      return `${statusString}: Branch <${branchUrl}|${branchName}> creation during <${job.url}|${job.name}> _<${runUrl}|${context.workflow}>_`;
+      return `${statusString}: Branch <${branchUrl}|${branchName}> creation during ${workflowSnippet}`;
     }
 
     case 'delete': {
@@ -112,7 +116,7 @@ const getMessage = async (statusString: string) => {
       }
 
       const branchName = context.payload.ref;
-      return `${statusString}: Branch \`${branchName}\` deletion during <${job.url}|${job.name}> _<${runUrl}|${context.workflow}>_`;
+      return `${statusString}: Branch \`${branchName}\` deletion during ${workflowSnippet}`;
     }
 
     default:
