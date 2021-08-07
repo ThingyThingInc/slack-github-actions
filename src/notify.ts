@@ -36,7 +36,7 @@ const getMessage = async (statusString: string) => {
   const jobName = failedJob?.name || context.job;
   const jobId = failedJob?.id || context.runId;
   // prettier-ignore
-  const runUrl = failedJob.url || `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${jobId}`;
+  const runUrl = failedJob?.url || `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${jobId}`;
 
   // prettier-ignore
   const workflowSnippet = (failedJob ? `<${runUrl}|${jobName}> ` : '') + (`_<${runUrl}|${context.workflow}>_`);
