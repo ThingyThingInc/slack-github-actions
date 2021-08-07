@@ -11,15 +11,15 @@ const jobParameters = (status: JobStatus) => {
   return {
     success: {
       color: 'good',
-      text: 'succeeded',
+      text: '*Succeeded*',
     },
     failure: {
       color: 'danger',
-      text: 'failed',
+      text: '*Failed*',
     },
     cancelled: {
       color: 'warning',
-      text: 'was cancelled.',
+      text: 'was *Cancelled*',
     },
   }[status];
 };
@@ -27,7 +27,7 @@ const jobParameters = (status: JobStatus) => {
 /**
  * Returns message for slack based on event type
  */
-const getMessage = () => {
+const getMessage = (statusString: string) => {
   const eventName = context.eventName;
 
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
@@ -41,10 +41,10 @@ const getMessage = () => {
         url: context.payload.pull_request?.html_url,
       };
 
-      const compareUrl = `${context.payload.repository?.html_url}/compare/${context.payload.pull_request?.head.ref}`;
+      // const compareUrl = `${context.payload.repository?.html_url}/compare/${context.payload.pull_request?.head.ref}`;
 
       // prettier-ignore
-      return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${compareUrl}|${commitId}>) for PR <${pr.url}| #${pr.number} ${pr.title}>`;
+			return `PR <${pr.url}| #${pr.number} ${pr.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
     }
 
     case 'release': {
@@ -54,7 +54,7 @@ const getMessage = () => {
         commit: `${context.payload.repository?.html_url}/commit/${context.sha}`,
       };
       // prettier-ignore
-      return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${release.commit}|${commitId}>) for Release <${release.url}| ${release.title}>`;
+			return `Release <${release.url}|${release.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
     }
 
     case 'push': {
@@ -69,7 +69,7 @@ const getMessage = () => {
         };
 
         // prettier-ignore
-        return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${tag.commit}|${commitId}>) for Tag <${tag.url}| ${tag.title}>`;
+				return `Tag <${tag.url}|${tag.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
       }
 
       const commitMessage = context.payload.head_commit.message;
@@ -81,11 +81,13 @@ const getMessage = () => {
       };
 
       // Normal commit push
-      return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${context.payload.compare}|${commitId}>) for Commit <${headCommit.url}| ${headCommit.title}>`;
+      return `<${headCommit.url}|${headCommit.title}> ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
+
+			// {commit message} {status} during {job} ({workflow})
     }
 
     case 'schedule': {
-      return `Scheduled Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}>`;
+      return `Scheduled Workflow <${runUrl}|${context.workflow}>`;
     }
 
     case 'create': {
@@ -97,7 +99,7 @@ const getMessage = () => {
       const branchName = context.ref.substring(pre.length);
       const branchUrl = `${context.payload.repository.html_url}/tree/${branchName}`;
 
-      return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> for Creation of Branch <${branchUrl}|${branchName}>`;
+			return `Branch <${branchUrl}|${branchName}> creation ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
     }
 
     case 'delete': {
@@ -106,7 +108,7 @@ const getMessage = () => {
       }
 
       const branchName = context.payload.ref;
-      return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> for Deletion of Branch \`${branchName}\``;
+			return `Branch \`${branchName}\` deletion ${statusString} during <${runUrl}|${context.job}> (<${runUrl}|${context.workflow}>)`;
     }
 
     default:
@@ -120,7 +122,7 @@ const getMessage = () => {
 const notify = async (status: JobStatus, url: string) => {
   const sender = context.payload.sender;
 
-  const message = getMessage();
+  const message = getMessage(jobParameters(status).text);
   core.debug(JSON.stringify(context));
 
   if (!message) {
@@ -137,7 +139,7 @@ const notify = async (status: JobStatus, url: string) => {
     footer_icon: 'https://github.githubassets.com/favicon.ico',
     mrkdwn_in: ['text'],
     ts: new Date(context.payload.repository?.pushed_at).getTime().toString(),
-    text: `${message} ${jobParameters(status).text}`,
+    text: message,
   };
 
   if (context.eventName === 'schedule') {

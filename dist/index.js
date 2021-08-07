@@ -12762,15 +12762,15 @@ const jobParameters = status => {
   return {
     success: {
       color: 'good',
-      text: 'succeeded'
+      text: '*Succeeded*'
     },
     failure: {
       color: 'danger',
-      text: 'failed'
+      text: '*Failed*'
     },
     cancelled: {
       color: 'warning',
-      text: 'was cancelled.'
+      text: 'was *Cancelled*'
     }
   }[status];
 };
@@ -12779,7 +12779,7 @@ const jobParameters = status => {
  */
 
 
-const getMessage = () => {
+const getMessage = statusString => {
   const eventName = github.context.eventName;
   const runUrl = `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
   const commitId = github.context.sha.substring(0, 7);
@@ -12787,45 +12787,45 @@ const getMessage = () => {
   switch (eventName) {
     case 'pull_request':
       {
-        var _context$payload$pull, _context$payload$pull2, _context$payload$pull3, _context$payload$repo, _context$payload$pull4;
+        var _context$payload$pull, _context$payload$pull2, _context$payload$pull3;
 
         const pr = {
           title: (_context$payload$pull = github.context.payload.pull_request) == null ? void 0 : _context$payload$pull.title,
           number: (_context$payload$pull2 = github.context.payload.pull_request) == null ? void 0 : _context$payload$pull2.number,
           url: (_context$payload$pull3 = github.context.payload.pull_request) == null ? void 0 : _context$payload$pull3.html_url
-        };
-        const compareUrl = `${(_context$payload$repo = github.context.payload.repository) == null ? void 0 : _context$payload$repo.html_url}/compare/${(_context$payload$pull4 = github.context.payload.pull_request) == null ? void 0 : _context$payload$pull4.head.ref}`; // prettier-ignore
+        }; // const compareUrl = `${context.payload.repository?.html_url}/compare/${context.payload.pull_request?.head.ref}`;
+        // prettier-ignore
 
-        return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${compareUrl}|${commitId}>) for PR <${pr.url}| #${pr.number} ${pr.title}>`;
+        return `PR <${pr.url}| #${pr.number} ${pr.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     case 'release':
       {
-        var _context$payload$repo2;
+        var _context$payload$repo;
 
         const release = {
           title: github.context.payload.release.name || github.context.payload.release.tag_name,
           url: github.context.payload.release.html_url,
-          commit: `${(_context$payload$repo2 = github.context.payload.repository) == null ? void 0 : _context$payload$repo2.html_url}/commit/${github.context.sha}`
+          commit: `${(_context$payload$repo = github.context.payload.repository) == null ? void 0 : _context$payload$repo.html_url}/commit/${github.context.sha}`
         }; // prettier-ignore
 
-        return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${release.commit}|${commitId}>) for Release <${release.url}| ${release.title}>`;
+        return `Release <${release.url}|${release.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     case 'push':
       {
         if (github.context.payload.ref.includes('tags')) {
-          var _context$payload$repo3;
+          var _context$payload$repo2;
 
           const pre = 'refs/tags/';
           const title = github.context.payload.ref.substring(pre.length);
           const tag = {
             title,
             commit: github.context.payload.compare,
-            url: `${(_context$payload$repo3 = github.context.payload.repository) == null ? void 0 : _context$payload$repo3.html_url}/releases/tag/${title}`
+            url: `${(_context$payload$repo2 = github.context.payload.repository) == null ? void 0 : _context$payload$repo2.html_url}/releases/tag/${title}`
           }; // prettier-ignore
 
-          return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${tag.commit}|${commitId}>) for Tag <${tag.url}| ${tag.title}>`;
+          return `Tag <${tag.url}|${tag.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
         }
 
         const commitMessage = github.context.payload.head_commit.message;
@@ -12834,12 +12834,12 @@ const getMessage = () => {
           url: github.context.payload.head_commit.url
         }; // Normal commit push
 
-        return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> (<${github.context.payload.compare}|${commitId}>) for Commit <${headCommit.url}| ${headCommit.title}>`;
+        return `<${headCommit.url}|${headCommit.title}> ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`; // {commit message} {status} during {job} ({workflow})
       }
 
     case 'schedule':
       {
-        return `Scheduled Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}>`;
+        return `Scheduled Workflow <${runUrl}|${github.context.workflow}>`;
       }
 
     case 'create':
@@ -12851,7 +12851,7 @@ const getMessage = () => {
         const pre = 'refs/heads/';
         const branchName = github.context.ref.substring(pre.length);
         const branchUrl = `${github.context.payload.repository.html_url}/tree/${branchName}`;
-        return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> for Creation of Branch <${branchUrl}|${branchName}>`;
+        return `Branch <${branchUrl}|${branchName}> creation ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     case 'delete':
@@ -12861,7 +12861,7 @@ const getMessage = () => {
         }
 
         const branchName = github.context.payload.ref;
-        return `Workflow <${runUrl}|${process.env.GITHUB_WORKFLOW}> for Deletion of Branch \`${branchName}\``;
+        return `Branch \`${branchName}\` deletion ${statusString} during <${runUrl}|${github.context.job}> (<${runUrl}|${github.context.workflow}>)`;
       }
 
     default:
@@ -12874,10 +12874,10 @@ const getMessage = () => {
 
 
 const notify = async (status, url) => {
-  var _context$payload$repo4;
+  var _context$payload$repo3;
 
   const sender = github.context.payload.sender;
-  const message = getMessage();
+  const message = getMessage(jobParameters(status).text);
   core$1.debug(JSON.stringify(github.context));
 
   if (!message) {
@@ -12893,8 +12893,8 @@ const notify = async (status, url) => {
     footer: `<https://github.com/${process.env.GITHUB_REPOSITORY}|${process.env.GITHUB_REPOSITORY}>`,
     footer_icon: 'https://github.githubassets.com/favicon.ico',
     mrkdwn_in: ['text'],
-    ts: new Date((_context$payload$repo4 = github.context.payload.repository) == null ? void 0 : _context$payload$repo4.pushed_at).getTime().toString(),
-    text: `${message} ${jobParameters(status).text}`
+    ts: new Date((_context$payload$repo3 = github.context.payload.repository) == null ? void 0 : _context$payload$repo3.pushed_at).getTime().toString(),
+    text: message
   };
 
   if (github.context.eventName === 'schedule') {
